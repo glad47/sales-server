@@ -44,6 +44,25 @@ if (!process.env.REDIS_HOST || !process.env.JWT_SECRET) {
 }
 const SECRET_KEY = process.env.JWT_SECRET 
 
+const APP_USERNAME = process.env.APP_USERNAME;
+const APP_PASSWORD = process.env.APP_PASSWORD;
+
+if (!APP_USERNAME || !APP_PASSWORD) {
+  throw new Error('❌ Missing APP_USERNAME or APP_PASSWORD in environment config');
+}
+
+
+
+
+await client.hSet('admin', {
+  username: APP_USERNAME,
+  password: APP_PASSWORD
+});
+
+
+
+
+
 async function verifyToken(req, res, next) {
   const raw = req.headers['authorization'];
   const token = raw?.split(' ')[1];
@@ -66,6 +85,68 @@ async function verifyToken(req, res, next) {
     res.status(403).json({ success: false, message: 'Token invalid' });
   }
 }
+
+
+async function verifyTAdminToken(req, res, next) {
+  const raw = req.headers['authorization'];
+  const token = raw?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Token missing' });
+  }
+
+  // Step 1: Check Redis for token existence
+  const exists = await client.exists(`adminToken:${token}`);
+  if (!exists) {
+    return res.status(403).json({ success: false, message: 'Admin token not registered' });
+  }
+
+  // Step 2: Verify JWT
+  let decoded;
+  try {
+    decoded = jwt.verify(token, SECRET_KEY);
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      console.error('⏰ Token expired:', err.expiredAt);
+      return res.status(401).json({ success: false, message: 'انتهت صلاحية التوكن' });
+    }
+    console.error('❌ Token verification failed:', err.message);
+    return res.status(403).json({ success: false, message: 'توكن غير صالح' });
+  }
+
+  // Step 3: Validate role
+  if (decoded.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Unauthorized role' });
+  }
+
+  // Step 4: Renew TTL
+  await client.expire(`adminToken:${token}`, 1800); // 30 minutes
+
+  req.admin = decoded;
+  next();
+}
+
+
+
+
+
+app.post('/adminAuth', async (req, res) => {
+  const { username, password } = req.body;
+
+  const stored = await client.hGetAll('admin');
+  if (!stored.username || !stored.password) {
+    return res.status(500).json({ success: false, message: 'Admin credentials not initialized' });
+  }
+
+  if (username !== stored.username || password !== stored.password) {
+    return res.status(401).json({ success: false, message: 'بيانات الدخول غير صحيحة' });
+  }
+
+  const token = jwt.sign({ role: 'admin', username }, SECRET_KEY, { expiresIn: '30m' });
+  await client.set(`adminToken:${token}`, 'valid', { EX: 1800 }); // 30m expiry
+
+  res.json({ success: true, token });
+});
+
 
 
 
