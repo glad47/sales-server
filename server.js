@@ -27,7 +27,7 @@ const client = redis.createClient({
   socket: {
     host: process.env.REDIS_HOST,
     port: Number(process.env.REDIS_PORT),
-    tls: process.env.REDIS_TLS === 'true' ? {} : undefined
+    tls: process.env.REDIS_TLS === 'true' ? true : undefined
   }
 });
 
@@ -51,16 +51,13 @@ async function verifyToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
-
     const status = await client.get(`token:${token}`);
     if (status !== 'valid') {
-      return res.status(403).json({ success: false, message: 'Token already used or invalid' });
+      return res.status(403).json({ success: false, message: 'حدث خطأ أثناء إرسال التصويت' });
     }
 
     // Mark token as used
     await client.set(`token:${token}`, 'used', { EX: 900 });
-
-    req.user = decoded;
     next();
   } catch (err) {
     res.status(403).json({ success: false, message: 'Token invalid' });
