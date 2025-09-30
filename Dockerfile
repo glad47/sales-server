@@ -7,8 +7,8 @@ RUN npm install
 
 COPY . .
 
-# # Set production mode
-# ENV NODE_ENV=production
+# Set production mode
+ENV NODE_ENV=production
 
 EXPOSE 8888
 
