@@ -3,7 +3,7 @@ console.log(process.env.NODE_ENV)
 const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
 console.log(envFile)
 dotenv.config({ path: envFile });
-
+const { v4 } = require('uuid');
 const jwt = require('jsonwebtoken');
 
 const http = require('http');
@@ -337,14 +337,15 @@ app.post('/submit-quotation', verifyTAdminToken, async (req, res) => {
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const bill_id = Date.now();
+  const bill_id = v4();
   const key = `quotation:${existingUser.user_id}:${bill_id}`;
+  const time = Date.now()
 
   const dataToStore = {
     bill_id: bill_id,
     username: username,
     user_id: existingUser.user_id,
-    timestamp:bill_id,
+    timestamp:time,
     status: 0,
     ...quotationData,
   };
@@ -353,11 +354,11 @@ app.post('/submit-quotation', verifyTAdminToken, async (req, res) => {
     await client.set(key, JSON.stringify(dataToStore));
 
     await client.publish('offer-notification-channel', JSON.stringify({
-      bill_id: bill_id.toString(),
+      bill_id: bill_id,
       username,
       type: "bill",
       companyName: quotationData.companyName,
-      timestamp: Date.now().toString()
+      timestamp: time
     }));
 
 
@@ -476,6 +477,68 @@ app.get('/search-quotations', verifyTAdminToken, async (req, res) => {
         quotations.push(data);
       }
     }
+
+    quotations.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+
+
+    const total = quotations.length;
+    const start = (page - 1) * pageSize;
+    const paginated = quotations.slice(start, start + parseInt(pageSize));
+
+    res.status(200).json({
+      success: true,
+      data: paginated,
+      total,
+      current: parseInt(page),
+      pageSize: parseInt(pageSize)
+    });
+  } catch (err) {
+    return res.status(200).json({
+      success: true,
+      data: [],
+      total: 0,
+      current: parseInt(page),
+      pageSize: parseInt(pageSize),
+      message: 'No offers found or error occurred'
+
+      
+    });
+  }
+});
+
+
+app.get('/search-quotations-rec', verifyTAdminToken, async (req, res) => {
+  const { username, companyName, status, date, page = 1, pageSize = 10 } = req.query;
+
+  try {
+
+  const username2 = req.admin.username;
+
+  const existingUser = await findUserByUsername(username2);
+  if (!existingUser) {
+    return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
+  }
+
+    const keys = await client.keys('quotation:*');
+
+    const quotations = [];
+
+    for (const key of keys) {
+      const raw = await client.get(key);
+      if (!raw) continue;
+
+      const data = JSON.parse(raw);
+      const statusMatch = status ? data.status == status : true;
+      const matchesUsername = username ? data.username === username : true;
+      const matchesCompany = companyName ? data.companyName?.includes(companyName) : true;
+      const matchesDate = date ? new Date(data.timestamp).toISOString().slice(0, 10) === date : true;
+
+      if (statusMatch && matchesUsername && matchesCompany && matchesDate) {
+        quotations.push(data);
+      }
+    }
+
+    quotations.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
 
     const total = quotations.length;
     const start = (page - 1) * pageSize;
@@ -680,13 +743,20 @@ app.get('/get_quotation/:id', verifyTAdminToken, async (req, res) => {
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const key = `quotation:${existingUser.user_id}:${id}`;
-  const exists = await client.exists(key);
-  if (!exists) {
-    return res.status(404).json({ success: false, message: 'عرض السعر غير موجود' });
-  }
+  const key = `quotation:*:${id}`;
+  // const exists = await client.exists(key);
+  // if (!exists) {
+  //   return res.status(404).json({ success: false, message: 'عرض السعر غير موجود' });
+  // }
 
-  const quotation = await client.get(key);
+  const pattern = `quotation:*:${id}`;
+  const [_, keys] = await client.scan(0, { MATCH: pattern, COUNT: '1' });
+  console.log("*******")
+  console.log(keys)
+
+  // const quotation = await client.get(key);
+  console.log("quotation")
+  console.log(quotation)
   const parsed = JSON.parse(quotation);
 
  
@@ -740,14 +810,15 @@ app.post('/submit-offer', verifyTAdminToken, async (req, res) => {
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const offer_id = Date.now();
+  const offer_id = v4();
   const key = `offer:${existingUser.user_id}:${offer_id}`;
+  const time = Date.now()
 
   const dataToStore = {
     offer_id: offer_id,
     username: username,
     user_id: existingUser.user_id,
-    timestamp:offer_id,
+    timestamp:time,
     status: 0,
     ...quotationData,
   };
@@ -756,10 +827,10 @@ app.post('/submit-offer', verifyTAdminToken, async (req, res) => {
     await client.set(key, JSON.stringify(dataToStore));
 
     await client.publish('offer-notification-channel', JSON.stringify({
-      offer_id: offer_id.toString(),
+      offer_id: offer_id,
       username,
       type: "offer",
-      timestamp: Date.now()
+      timestamp: time
     }));
 
 
@@ -801,6 +872,66 @@ app.get('/search-offers', verifyTAdminToken, async (req, res) => {
         offers.push(data);
       }
     }
+
+    offers.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+
+
+    const total = offers.length;
+    const start = (page - 1) * pageSize;
+    const paginated = offers.slice(start, start + parseInt(pageSize));
+
+    res.status(200).json({
+      success: true,
+      data: paginated,
+      total,
+      current: parseInt(page),
+      pageSize: parseInt(pageSize)
+    });
+  } catch (err) {
+    // res.status(500).json({ success: false, error: err.message });
+    return res.status(200).json({
+      success: true,
+      data: [],
+      total: 0,
+      current: parseInt(page),
+      pageSize: parseInt(pageSize),
+      message: 'No offers found or error occurred'
+
+      
+    });
+  }
+});
+
+
+app.get('/search-offers-rec', verifyTAdminToken, async (req, res) => {
+  const { username, date, status, page = 1, pageSize = 10 } = req.query;
+  
+  try {
+    const username2 = req.admin.username;
+    const existingUser = await findUserByUsername(username2);
+    if (!existingUser) {
+      return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
+    }
+
+    const keys = await client.keys('offer:*');
+    const offers = [];
+
+    for (const key of keys) {
+      const raw = await client.get(key);
+      if (!raw) continue;
+
+      const data = JSON.parse(raw);
+
+      const statusMatch = status ? data.status == status : true
+      const matchesUsername = username ? data.username === username : true;
+      const matchesDate = date ? new Date(data.timestamp).toISOString().slice(0, 10) === date : true;
+
+      if (statusMatch && matchesUsername && matchesDate) {
+        offers.push(data);
+      }
+    }
+
+    offers.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
 
     const total = offers.length;
     const start = (page - 1) * pageSize;
@@ -956,16 +1087,28 @@ app.get('/get_offer/:id', verifyTAdminToken, async (req, res) => {
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const key = `offer:${existingUser.user_id}:${id}`;
-  const exists = await client.exists(key);
-  if (!exists) {
+  const pattern = `offer:*:${id}`;
+  console.log(pattern)
+  const [_, keys] = await client.scan(0, { MATCH: pattern, COUNT: 1 });
+
+  if (keys.length === 0) {
     return res.status(404).json({ success: false, message: 'عرض غير موجود' });
   }
 
+  const key = keys[0];
   const quotation = await client.get(key);
-  const parsed = JSON.parse(quotation);
 
- 
+  if (!quotation) {
+    return res.status(404).json({ success: false, message: 'المحتوى غير موجود لهذا العرض' });
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(quotation);
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'خطأ في قراءة بيانات العرض' });
+  }
+
   res.json({ success: true, data: parsed });
 });
 
