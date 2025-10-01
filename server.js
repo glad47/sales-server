@@ -734,8 +734,10 @@ app.get('/get_quotations_by_status', verifyTAdminToken, async (req, res) => {
 
 
 
-app.get('/get_quotation/:id', verifyTAdminToken, async (req, res) => {
-  const { id } = req.params;
+app.get('/get_quotation/:user_id/:id', verifyTAdminToken, async (req, res) => {
+
+  const { user_id, id } = req.params;
+
   const username = req.admin.username;
 
   const existingUser = await findUserByUsername(username);
@@ -743,20 +745,15 @@ app.get('/get_quotation/:id', verifyTAdminToken, async (req, res) => {
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const key = `quotation:*:${id}`;
-  // const exists = await client.exists(key);
-  // if (!exists) {
-  //   return res.status(404).json({ success: false, message: 'عرض السعر غير موجود' });
-  // }
+  const key = `quotation:${user_id}:${id}`;
+  const exists = await client.exists(key);
+  if (!exists) {
+    return res.status(404).json({ success: false, message: 'عرض السعر غير موجود' });
+  }
 
-  const pattern = `quotation:*:${id}`;
-  const [_, keys] = await client.scan(0, { MATCH: pattern, COUNT: '1' });
-  console.log("*******")
-  console.log(keys)
 
-  // const quotation = await client.get(key);
-  console.log("quotation")
-  console.log(quotation)
+  const quotation = await client.get(key);
+  
   const parsed = JSON.parse(quotation);
 
  
@@ -1076,10 +1073,10 @@ app.get('/get_offers', verifyTAdminToken, async (req, res) => {
   }
 });
 
+app.get('/get_offer/:user_id/:id', verifyTAdminToken, async (req, res) => {
 
+  const { user_id, id } = req.params;
 
-app.get('/get_offer/:id', verifyTAdminToken, async (req, res) => {
-  const { id } = req.params;
   const username = req.admin.username;
 
   const existingUser = await findUserByUsername(username);
@@ -1087,30 +1084,55 @@ app.get('/get_offer/:id', verifyTAdminToken, async (req, res) => {
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const pattern = `offer:*:${id}`;
-  console.log(pattern)
-  const [_, keys] = await client.scan(0, { MATCH: pattern, COUNT: 1 });
-
-  if (keys.length === 0) {
+  const key = `offer:${user_id}:${id}`;
+  const exists = await client.exists(key);
+  if (!exists) {
     return res.status(404).json({ success: false, message: 'عرض غير موجود' });
   }
 
-  const key = keys[0];
-  const quotation = await client.get(key);
 
-  if (!quotation) {
-    return res.status(404).json({ success: false, message: 'المحتوى غير موجود لهذا العرض' });
-  }
+  const offer = await client.get(key);
+  
+  const parsed = JSON.parse(offer);
 
-  let parsed;
-  try {
-    parsed = JSON.parse(quotation);
-  } catch (err) {
-    return res.status(500).json({ success: false, message: 'خطأ في قراءة بيانات العرض' });
-  }
-
+ 
   res.json({ success: true, data: parsed });
 });
+
+
+// app.get('/get_offer/:id', verifyTAdminToken, async (req, res) => {
+//   const { id } = req.params;
+//   const username = req.admin.username;
+
+//   const existingUser = await findUserByUsername(username);
+//   if (!existingUser) {
+//     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
+//   }
+
+//   const pattern = `offer:*:${id}`;
+//   console.log(pattern)
+//   const [_, keys] = await client.scan(0, { MATCH: pattern, COUNT: 1 });
+
+//   if (keys.length === 0) {
+//     return res.status(404).json({ success: false, message: 'عرض غير موجود' });
+//   }
+
+//   const key = keys[0];
+//   const quotation = await client.get(key);
+
+//   if (!quotation) {
+//     return res.status(404).json({ success: false, message: 'المحتوى غير موجود لهذا العرض' });
+//   }
+
+//   let parsed;
+//   try {
+//     parsed = JSON.parse(quotation);
+//   } catch (err) {
+//     return res.status(500).json({ success: false, message: 'خطأ في قراءة بيانات العرض' });
+//   }
+
+//   res.json({ success: true, data: parsed });
+// });
 
 
 
