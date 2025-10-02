@@ -568,8 +568,8 @@ app.get('/search-quotations-rec', verifyTAdminToken, async (req, res) => {
 
 
 
-app.put('/update-quotation/:bill_id', verifyTAdminToken, async (req, res) => {
-  const { bill_id } = req.params;
+app.put('/update-quotation/:user_id/:bill_id', verifyTAdminToken, async (req, res) => {
+  const { user_id, bill_id } = req.params;
   const updatedData = req.body;
   const username = req.admin.username;
 
@@ -578,7 +578,7 @@ app.put('/update-quotation/:bill_id', verifyTAdminToken, async (req, res) => {
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const key = `quotation:${existingUser.user_id}:${bill_id}`;
+  const key = `quotation:${user_id}:${bill_id}`;
 
   try {
     const existingQuotation = await client.get(key);
@@ -603,8 +603,8 @@ app.put('/update-quotation/:bill_id', verifyTAdminToken, async (req, res) => {
 
 
 
-app.put('/update-quotation-status/:bill_id', verifyTAdminToken, async (req, res) => {
-  const { bill_id } = req.params;
+app.put('/update-quotation-status/:user_id/:bill_id', verifyTAdminToken, async (req, res) => {
+  const { bill_id, user_id } = req.params;
   const { status } = req.body;
   const username = req.admin.username;
 
@@ -617,7 +617,7 @@ app.put('/update-quotation-status/:bill_id', verifyTAdminToken, async (req, res)
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const key = `quotation:${existingUser.user_id}:${bill_id}`;
+  const key = `quotation:${user_id}:${bill_id}`;
 
   try {
     const existingQuotation = await client.get(key);
@@ -959,8 +959,8 @@ app.get('/search-offers-rec', verifyTAdminToken, async (req, res) => {
 
 
 
-app.put('/update-offer/:offer_id', verifyTAdminToken, async (req, res) => {
-  const { offer_id } = req.params;
+app.put('/update-offer/:user_id/:offer_id', verifyTAdminToken, async (req, res) => {
+  const {user_id, offer_id } = req.params;
   const updatedData = req.body;
   const username = req.admin.username;
 
@@ -969,7 +969,7 @@ app.put('/update-offer/:offer_id', verifyTAdminToken, async (req, res) => {
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const key = `offer:${existingUser.user_id}:${offer_id}`;
+  const key = `offer:${user_id}:${offer_id}`;
 
   try {
     const existingQuotation = await client.get(key);
@@ -993,8 +993,8 @@ app.put('/update-offer/:offer_id', verifyTAdminToken, async (req, res) => {
 });
 
 
-app.put('/update-offer-status/:offer_id', verifyTAdminToken, async (req, res) => {
-  const { offer_id } = req.params;
+app.put('/update-offer-status/:user_id/:offer_id', verifyTAdminToken, async (req, res) => {
+  const { user_id, offer_id } = req.params;
   const { status } = req.body;
   const username = req.admin.username;
 
@@ -1007,7 +1007,7 @@ app.put('/update-offer-status/:offer_id', verifyTAdminToken, async (req, res) =>
     return res.status(959).json({ success: false, message: 'المستخدم غير موجود' });
   }
 
-  const key = `offer:${existingUser.user_id}:${offer_id}`;
+  const key = `offer:${user_id}:${offer_id}`;
 
   try {
     const existingQuotation = await client.get(key);
